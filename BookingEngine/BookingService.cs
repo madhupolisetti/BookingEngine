@@ -29,6 +29,7 @@ namespace BookingEngine
 
         protected override void OnStop()
         {
+            SharedClass.Logger.Info("Stop Signal Received");
             System.Threading.Thread _stopThread = new System.Threading.Thread(new System.Threading.ThreadStart(this._applicationController.Stop));
             _stopThread.Name = "StopSignal";
             _stopThread.Start();

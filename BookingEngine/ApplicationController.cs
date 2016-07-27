@@ -24,7 +24,7 @@ namespace BookingEngine
         private byte _subscribersRunning = 0;
         Mutex _bookingClientsMutex = new Mutex();
         private Queue<BookingMessage> _messageQueue = new Queue<BookingMessage>();
-        private SqlConnection _dumpMessageSqlConnection = null;
+        private SqlConnection _createJobIdSqlConnection = null;
         private SqlConnection _lockSqlConnection = null;
         private SqlConnection _releaseSqlConnection = null;
         private SqlConnection _confirmSqlConnection = null;
@@ -41,7 +41,7 @@ namespace BookingEngine
         }        
         public void Start()
         {
-            this._dumpMessageSqlConnection = new SqlConnection(SharedClass.ConnectionString);
+            this._createJobIdSqlConnection = new SqlConnection(SharedClass.ConnectionString);
             this._lockSqlConnection = new SqlConnection(SharedClass.ConnectionString);
             this._releaseSqlConnection = new SqlConnection(SharedClass.ConnectionString);
             this._confirmSqlConnection = new SqlConnection(SharedClass.ConnectionString);
@@ -84,7 +84,7 @@ namespace BookingEngine
         public void Stop()
         {
             SharedClass.HasStopSignal = true;
-            SharedClass.Logger.Info("Stop Signal Received");
+            SharedClass.Logger.Info("Processing Stop Signal");
             while (this._subscribersRunning > 0)
             {
                 SharedClass.Logger.Info("Still " + this._subscribersRunning.ToString() + " Subscribers Running");
@@ -104,6 +104,7 @@ namespace BookingEngine
             }
             this.UpdateServiceStatus(true);
             SharedClass.IsServiceCleaned = true;
+            SharedClass.Logger.Info("Stop Signal Processed");
         }
         public void Subscribe()
         {
@@ -191,23 +192,30 @@ namespace BookingEngine
                                 SharedClass.Logger.Error("Invalid JSon");
                                 continue;
                             }
-                            if (messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString().Equals(BookingActions.STATS))
+                            else if (messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString().Equals(BookingActions.STATS))
                             {
                                 //ReportStats;
                                 this.DeleteMessageFromSQSQueue(bookingMessage);
                                 continue;
                             }
+                            else if (messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString().Equals(BookingActions.RELEASE_ON_DEMAND, StringComparison.CurrentCultureIgnoreCase))
+                            { 
+                                //RELEASE
+                                this.DeleteMessageFromSQSQueue(bookingMessage);
+                                continue;
+                            }
                             jobId = 0;
+                            bookingMessage.PublishTimeStamp = Convert.ToInt64(messageBody.SelectToken(MessageBodyAttributes.PUBLISH_TIME_STAMP).ToString());
                             switch (messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString())
                             {
                                 case BookingActions.LOCK:
-                                    this.DumpMessage(bookingMessage, messageBody, out jobId);
+                                    this.CreateJobIdForBookingMessage(bookingMessage, messageBody, out jobId);
                                     break;
                                 case BookingActions.RELEASE:
-                                    this.DumpMessage(bookingMessage, messageBody, out jobId);
+                                    this.CreateJobIdForBookingMessage(bookingMessage, messageBody, out jobId);
                                     break;
                                 case BookingActions.CONFIRM:
-                                    this.DumpMessage(bookingMessage, messageBody, out jobId);
+                                    this.CreateJobIdForBookingMessage(bookingMessage, messageBody, out jobId);
                                     break;
                                 default:
                                     SharedClass.Logger.Error("Invalid Action " + messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString());
@@ -257,11 +265,11 @@ namespace BookingEngine
             --this._bookingClientsRunning;
             this._bookingClientsMutex.ReleaseMutex();
         }
-        private void DumpMessage(BookingMessage bookingMessage, JObject messageBody, out long jobId)
+        private void CreateJobIdForBookingMessage(BookingMessage bookingMessage, JObject messageBody, out long jobId)
         {
             SharedClass.Logger.Info("Creating JobId. " + bookingMessage.PrintIdentifiers());
             jobId = 0;
-            SqlCommand sqlCmd = new SqlCommand(StoredProcedures.DUMP_MESSAGE, this._dumpMessageSqlConnection);
+            SqlCommand sqlCmd = new SqlCommand(StoredProcedures.CREATE_JOB_ID_FOR_MESSAGE, this._createJobIdSqlConnection);
             sqlCmd.CommandType = CommandType.StoredProcedure;
             try
             {
@@ -315,17 +323,13 @@ namespace BookingEngine
                 sqlCmd.Parameters.Add(DataBaseParameters.JOB_ID, SqlDbType.BigInt).Direction = ParameterDirection.Output;
                 sqlCmd.Parameters.Add(DataBaseParameters.SUCCESS, SqlDbType.Bit).Direction = ParameterDirection.Output;
                 sqlCmd.Parameters.Add(DataBaseParameters.MESSAGE, SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
-                if (this._dumpMessageSqlConnection.State != ConnectionState.Open)
-                    this._dumpMessageSqlConnection.Open();
+                if (this._createJobIdSqlConnection.State != ConnectionState.Open)
+                    this._createJobIdSqlConnection.Open();
                 sqlCmd.ExecuteNonQuery();
-                if (Convert.ToBoolean(sqlCmd.Parameters[DataBaseParameters.SUCCESS].Value))
-                {
-                    jobId = Convert.ToInt64(sqlCmd.Parameters[DataBaseParameters.JOB_ID].Value);
-                }
+                if(sqlCmd.Parameters[DataBaseParameters.JOB_ID].Value != DBNull.Value)
+                    jobId = Convert.ToInt64(sqlCmd.Parameters[DataBaseParameters.JOB_ID].Value);                
                 else
-                {
                     SharedClass.Logger.Error("JobId Creation Unsuccessful " + bookingMessage.PrintIdentifiers() + ", Reason : " + sqlCmd.Parameters[DataBaseParameters.MESSAGE].Value.ToString());
-                }
             }
             catch (Exception e)
             {
@@ -471,7 +475,6 @@ namespace BookingEngine
                     foreach (DataRow dataRow in ds.Tables[0].Rows)
                         foreach (DataColumn dataColumn in dataRow.Table.Columns)
                             postingObject.Add(new JProperty(dataColumn.ColumnName, dataRow[dataColumn.ColumnName]));
-                    //postingObject.Add(new JProperty("CinemaId", SharedClass.NodeId));
                     postingObject.Add(new JProperty("PublishTimeStamp", bookingMessage.PublishTimeStamp));
                     postingObject.Add(new JProperty("QueueWaitTime", bookingMessage.SQSQueueWaitTime));
                     postingObject.Add(new JProperty("TransactionTimeTaken", DateTime.Now.ToUnixTimeStamp() - bookingMessage.ActionStartTimeStamp));
@@ -546,6 +549,7 @@ namespace BookingEngine
         }
         private void UpdateNotifyResponse(ref BookingMessage bookingMessage)
         {
+            SharedClass.Logger.Info("Updating NotifyResponse " + bookingMessage.PrintIdentifiers() + " " + bookingMessage.NotifyResponse);
             SqlCommand sqlCmd = new SqlCommand(StoredProcedures.UPDATE_NOTIFY_RESPONSE, this._updateNotifyResponseSqlConnection);
             sqlCmd.CommandType = CommandType.StoredProcedure;
             try
@@ -650,6 +654,22 @@ namespace BookingEngine
             catch (Exception e)
             {
                 SharedClass.Logger.Error("Exception while changing visibility of Message " + bookingMessage.PrintIdentifiers());
+            }
+        }
+        private void ChangeMessageVisibilityBatch(List<BookingMessage> bookingMessages)
+        {
+            ChangeMessageVisibilityBatchRequest request = new ChangeMessageVisibilityBatchRequest();
+            ChangeMessageVisibilityBatchResponse response = null;
+            request.QueueUrl = SharedClass.SQSQueueArn;
+            foreach (BookingMessage bookingMessage in bookingMessages)
+                request.Entries.Add(new ChangeMessageVisibilityBatchRequestEntry(bookingMessage.Instructions.MessageId, bookingMessage.Instructions.ReceiptHandle));
+            try
+            {
+                response = SQSCLIENT.ChangeMessageVisibilityBatch(request);                
+            }
+            catch (Exception e)
+            {
+                SharedClass.Logger.Error("Exception while changing MessageVisibility for Batch : " + e.ToString());
             }
         }
         private void EnQueue(BookingMessage bookingMessage)

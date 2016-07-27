@@ -12,5 +12,6 @@ namespace BookingEngine
         public const string CONFIRM = "confirm";
         public const string RELEASE = "cancel";
         public const string STATS = "stats";
+        public const string RELEASE_ON_DEMAND = "ROD";
     }
 }

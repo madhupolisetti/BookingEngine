@@ -8,7 +8,7 @@ namespace BookingEngine
 {
     public static class StoredProcedures
     {
-        public const string DUMP_MESSAGE = "DumpMessage";
+        public const string CREATE_JOB_ID_FOR_MESSAGE = "CreateJobIdForBookingMessage";
         public const string LOCK_SEATS = "LockSeats";
         public const string RELEASE_SEATS = "ReleaseSeats";
         public const string CONFIRM_SEATS = "ConfirmSeats";

@@ -75,13 +75,13 @@ namespace BookingEngine
         {
             get
             {
-                return Convert.ToInt64(this.Instructions.Attributes[MessageAttributes.SENT_TIME_STAMP]) -
-                    Convert.ToInt64(this.Instructions.Attributes[MessageAttributes.APPROXIMATE_FIRST_RECEIVE_TIME_STAMP]);
+                return Convert.ToInt64(this.Instructions.Attributes[MessageAttributes.APPROXIMATE_FIRST_RECEIVE_TIME_STAMP]) -
+                    Convert.ToInt64(this.Instructions.Attributes[MessageAttributes.SENT_TIME_STAMP]);
             }
         }
         public string PrintIdentifiers()
         {
-            return "MessageId : " + this.Instructions.MessageId + ", JobId : " + this._jobId.ToString();
+            return "JobId : " + this.JobId.ToString() + ", MessageId : " + this.Instructions.MessageId;
         }
     }
 }

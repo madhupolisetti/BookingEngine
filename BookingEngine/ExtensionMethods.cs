@@ -10,7 +10,7 @@ namespace BookingEngine
     {
         public static long ToUnixTimeStamp(this DateTime input)
         {
-            return Convert.ToInt64((input - new DateTime(1970, 0, 0)).TotalSeconds);
+            return Convert.ToInt64((input - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds);
         }
     }
 }
