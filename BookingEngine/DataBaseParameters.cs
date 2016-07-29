@@ -20,15 +20,16 @@ namespace BookingEngine
         public const string LOCK_FOR_MINUTES = "@LockForMinutes";
         public const string BOOKING_CONFIRMATION_CODE = "@BookingConfirmationCode";
         public const string CARD_NUMBER = "@CardNumber";
+        public const string COMBOS_SELECTED = "@CombosSelected";
         public const string APPROXIMATE_FIRST_RECEIVE_TIME_STAMP = "@ApproximateFirstReceiveTimeStamp";
         public const string APPROXIMATE_RECEIVE_COUNT = "@ApproximateReceiveCount";
         public const string SENT_TIME_STAMP = "@SentTimeStamp";
         public const string MESSAGE_ID = "@MessageId";
-        public const string JOB_ID = "@JobId";
+        public const string JOB_ID = "@JobId";        
         public const string SUCCESS = "@Success";
         public const string MESSAGE = "@Message";
         public const string NOTIFY_URL = "@NotifyUrl";
-        public const string NOTIFY_RESPONSE = "@NotifyResponse";
+        public const string NOTIFY_RESPONSE = "@NotifyResponse";        
 
         public const string SERVICE_NAME = "@ServiceName";
         public const string IS_STOPPED = "@IsStopped";

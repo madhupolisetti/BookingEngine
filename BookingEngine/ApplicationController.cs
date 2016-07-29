@@ -309,6 +309,9 @@ namespace BookingEngine
                 sqlCmd.Parameters.Add(DataBaseParameters.CARD_NUMBER, SqlDbType.VarChar, 20).Value =
                     messageBody.SelectToken(MessageBodyAttributes.CARD_NUMBER) == null ? string.Empty : messageBody.SelectToken(MessageBodyAttributes.CARD_NUMBER).ToString();
 
+                sqlCmd.Parameters.Add(DataBaseParameters.COMBOS_SELECTED, SqlDbType.TinyInt).Value =
+                    messageBody.SelectToken(MessageBodyAttributes.COMBO_COUNT) == null ? 0 : Convert.ToByte(messageBody.SelectToken(MessageBodyAttributes.COMBO_COUNT).ToString());
+
                 sqlCmd.Parameters.Add(DataBaseParameters.APPROXIMATE_FIRST_RECEIVE_TIME_STAMP, SqlDbType.BigInt).Value =
                     Math.Ceiling(Convert.ToDouble(bookingMessage.Instructions.Attributes[MessageAttributes.APPROXIMATE_FIRST_RECEIVE_TIME_STAMP]) / 1000);
 
