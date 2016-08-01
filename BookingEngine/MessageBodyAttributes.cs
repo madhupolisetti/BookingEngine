@@ -21,6 +21,7 @@ namespace BookingEngine
         public const string SHOW_TIME = "show_time";
         public const string BOX_OFFICE_SCREEN_ID = "screen_id";
         public const string PUBLISH_TIME_STAMP = "PublishTimeStamp";
+        public const string COMBO_ID = "combo_id";
         public const string COMBO_COUNT = "combo_count";
     }
 }

@@ -29,6 +29,7 @@ namespace BookingEngine
         private SqlConnection _releaseSqlConnection = null;
         private SqlConnection _confirmSqlConnection = null;
         private SqlConnection _releaseProceedSqlConnection = null;
+        private SqlConnection _manualBookingSqlConnection = null;
         private SqlConnection _notifyParametersSqlConnection = null;
         private SqlConnection _updateNotifyResponseSqlConnection = null;
         
@@ -41,11 +42,13 @@ namespace BookingEngine
         }        
         public void Start()
         {
+            SharedClass.Logger.Info("Starting Service");
             this._createJobIdSqlConnection = new SqlConnection(SharedClass.ConnectionString);
             this._lockSqlConnection = new SqlConnection(SharedClass.ConnectionString);
             this._releaseSqlConnection = new SqlConnection(SharedClass.ConnectionString);
             this._confirmSqlConnection = new SqlConnection(SharedClass.ConnectionString);
             this._releaseProceedSqlConnection = new SqlConnection(SharedClass.ConnectionString);
+            this._manualBookingSqlConnection = new SqlConnection(SharedClass.ConnectionString);
             this._notifyParametersSqlConnection = new SqlConnection(SharedClass.ConnectionString);
             this._updateNotifyResponseSqlConnection = new SqlConnection(SharedClass.ConnectionString);
             this._subscribers = new Thread[SharedClass.SubscribersCount];
@@ -194,7 +197,7 @@ namespace BookingEngine
                             }
                             else if (messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString().Equals(BookingActions.STATS))
                             {
-                                //ReportStats;
+                                this.PushStats();
                                 this.DeleteMessageFromSQSQueue(bookingMessage);
                                 continue;
                             }
@@ -217,6 +220,9 @@ namespace BookingEngine
                                 case BookingActions.CONFIRM:
                                     this.CreateJobIdForBookingMessage(bookingMessage, messageBody, out jobId);
                                     break;
+                                case BookingActions.MANUAL_BOOKING:
+                                    this.CreateJobIdForBookingMessage(bookingMessage, messageBody, out jobId);
+                                    break;
                                 default:
                                     SharedClass.Logger.Error("Invalid Action " + messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString());
                                     break;
@@ -230,11 +236,14 @@ namespace BookingEngine
                                         this.LockSeats(ref bookingMessage);
                                         break;
                                     case BookingActions.RELEASE:
-                                        if(this.ReleaseProceed(bookingMessage.JobId))
+                                        if (this.ReleaseProceed(bookingMessage.JobId))
                                             this.ReleaseSeats(ref bookingMessage);
                                         break;
                                     case BookingActions.CONFIRM:
                                         this.ConfirmSeats(ref bookingMessage);
+                                        break;
+                                    case BookingActions.MANUAL_BOOKING:
+                                        this.ManualBooking(ref bookingMessage);
                                         break;
                                 }
                                 NotifyWebServer(ref bookingMessage);
@@ -251,12 +260,18 @@ namespace BookingEngine
                     }
                     else
                     {
-                        Thread.Sleep(1000);
+                        try
+                        { Thread.Sleep(SharedClass.BookingClientSleepTimeInSeconds * 1000); }
+                        catch (Exception e)
+                        { }
                     }
                 }
                 else
                 {
-                    Thread.Sleep(2000);
+                    try
+                    { Thread.Sleep(SharedClass.BookingClientSleepTimeInSeconds * 1000); }
+                    catch (Exception e)
+                    { }
                 }
             }
             SharedClass.Logger.Info("Exit");
@@ -297,7 +312,7 @@ namespace BookingEngine
                 sqlCmd.Parameters.Add(DataBaseParameters.BOOKING_ID, SqlDbType.BigInt).Value =
                     (messageBody.SelectToken(MessageBodyAttributes.BOOKING_ID) == null) ? 0 : Convert.ToInt64(messageBody.SelectToken(MessageBodyAttributes.BOOKING_ID).ToString());
 
-                sqlCmd.Parameters.Add(DataBaseParameters.BOOKING_ACTION, SqlDbType.VarChar, 10).Value =
+                sqlCmd.Parameters.Add(DataBaseParameters.BOOKING_ACTION, SqlDbType.VarChar, 20).Value =
                     messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString();
 
                 sqlCmd.Parameters.Add(DataBaseParameters.LOCK_FOR_MINUTES, SqlDbType.TinyInt).Value =
@@ -309,7 +324,9 @@ namespace BookingEngine
                 sqlCmd.Parameters.Add(DataBaseParameters.CARD_NUMBER, SqlDbType.VarChar, 20).Value =
                     messageBody.SelectToken(MessageBodyAttributes.CARD_NUMBER) == null ? string.Empty : messageBody.SelectToken(MessageBodyAttributes.CARD_NUMBER).ToString();
 
-                sqlCmd.Parameters.Add(DataBaseParameters.COMBOS_SELECTED, SqlDbType.TinyInt).Value =
+                sqlCmd.Parameters.Add(DataBaseParameters.COMBO_ID, SqlDbType.Int).Value =
+                    messageBody.SelectToken(MessageBodyAttributes.COMBO_ID) == null ? 0 : Convert.ToInt16(messageBody.SelectToken(MessageBodyAttributes.COMBO_ID).ToString());
+                sqlCmd.Parameters.Add(DataBaseParameters.NUMBER_OF_COMBOS, SqlDbType.TinyInt).Value =
                     messageBody.SelectToken(MessageBodyAttributes.COMBO_COUNT) == null ? 0 : Convert.ToByte(messageBody.SelectToken(MessageBodyAttributes.COMBO_COUNT).ToString());
 
                 sqlCmd.Parameters.Add(DataBaseParameters.APPROXIMATE_FIRST_RECEIVE_TIME_STAMP, SqlDbType.BigInt).Value =
@@ -336,7 +353,7 @@ namespace BookingEngine
             }
             catch (Exception e)
             {
-                SharedClass.Logger.Error("Exception while creating JobId " + bookingMessage.PrintIdentifiers() + " to DB. Reason : " + e.ToString());
+                SharedClass.Logger.Error("Exception while creating JobId " + bookingMessage.PrintIdentifiers() + " to DB. Reason : " + e.ToString());                
             }
             finally
             {
@@ -355,19 +372,16 @@ namespace BookingEngine
         {
             SharedClass.Logger.Info("Executing LOCK " + bookingMessage.PrintIdentifiers());
             SqlCommand sqlCmd = new SqlCommand(StoredProcedures.LOCK_SEATS, this._lockSqlConnection);
-            SqlDataAdapter da = new SqlDataAdapter();
-            DataSet ds = new DataSet();
             sqlCmd.CommandType = CommandType.StoredProcedure;
             try
             {
                 sqlCmd.Parameters.Add(DataBaseParameters.JOB_ID, SqlDbType.BigInt).Value = bookingMessage.JobId;
                 sqlCmd.Parameters.Add(DataBaseParameters.SUCCESS, SqlDbType.Bit).Direction = ParameterDirection.Output;
                 sqlCmd.Parameters.Add(DataBaseParameters.MESSAGE, SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
-                da.SelectCommand = sqlCmd;
-                da.Fill(ds);
+                if (this._lockSqlConnection.State != ConnectionState.Open)
+                    this._lockSqlConnection.Open();
                 bookingMessage.IsBookingActionSuccess = Convert.ToBoolean(sqlCmd.Parameters[DataBaseParameters.SUCCESS].Value);
                 bookingMessage.BookingActionResponseMessage = sqlCmd.Parameters[DataBaseParameters.MESSAGE].Value.ToString();
-                bookingMessage.BookingActionResult = ds;
                 SharedClass.Logger.Info("LOCK Result for " + bookingMessage.PrintIdentifiers() + ". " + bookingMessage.IsBookingActionSuccess + ", Message : " + bookingMessage.BookingActionResponseMessage);
             }
             catch (Exception e)
@@ -379,9 +393,11 @@ namespace BookingEngine
             finally
             {
                 try
-                { sqlCmd.Dispose(); }
+                {
+                    sqlCmd.Dispose();
+                }
                 catch (Exception e)
-                { 
+                {
                     //if(e is NullReferenceException)
                 }
                 sqlCmd = null;
@@ -459,6 +475,84 @@ namespace BookingEngine
                 sqlCmd = null;
             }
         }
+        private void ManualBooking(ref BookingMessage bookingMessage)
+        {
+            SharedClass.Logger.Info("Executing MANUAL_CONFIRM " + bookingMessage.PrintIdentifiers());
+            SqlCommand sqlCmd = new SqlCommand("ManualBooking", this._manualBookingSqlConnection);
+            sqlCmd.CommandType = CommandType.StoredProcedure;
+            SqlDataAdapter da = new SqlDataAdapter();
+            DataSet ds = new DataSet();
+            try
+            {
+                sqlCmd.Parameters.Add(DataBaseParameters.JOB_ID, SqlDbType.BigInt).Value = bookingMessage.JobId;
+                sqlCmd.Parameters.Add(DataBaseParameters.SUCCESS, SqlDbType.Bit).Direction = ParameterDirection.Output;
+                sqlCmd.Parameters.Add(DataBaseParameters.MESSAGE, SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+                da.SelectCommand = sqlCmd;
+                da.Fill(ds);
+                bookingMessage.IsBookingActionSuccess = Convert.ToBoolean(sqlCmd.Parameters[DataBaseParameters.SUCCESS].Value);
+                bookingMessage.BookingActionResponseMessage = sqlCmd.Parameters[DataBaseParameters.MESSAGE].Value.ToString();
+                bookingMessage.BookingActionResult = ds;
+                SharedClass.Logger.Info("MANUAL_CONFIRM Result for " + bookingMessage.PrintIdentifiers() + ". " + bookingMessage.IsBookingActionSuccess + ", Message : " + bookingMessage.BookingActionResponseMessage);
+            }
+            catch (Exception e)
+            {
+                SharedClass.Logger.Error("Exception while executing CANCEL " + bookingMessage.PrintIdentifiers() + ", Reason : " + e.ToString());
+                bookingMessage.IsBookingActionSuccess = false;
+                bookingMessage.BookingActionResponseMessage = e.Message;
+            }
+            finally
+            {
+                try
+                {
+                    sqlCmd.Dispose();
+                }
+                catch (Exception e)
+                {
+                    //if(e is NullReferenceException)
+                    sqlCmd = null;
+                }
+            }
+        }
+        private void PushStats()
+        {
+            SharedClass.Logger.Info("Pushing Stats");
+            SqlConnection sqlCon = new SqlConnection(SharedClass.ConnectionString);
+            SqlCommand sqlCmd = new SqlCommand(StoredProcedures.PUSH_BOX_OFFICE_STATS, sqlCon);
+            sqlCmd.CommandType = CommandType.StoredProcedure;
+            try
+            {
+                sqlCmd.CommandTimeout = 0;
+                sqlCon.Open();
+                sqlCmd.ExecuteNonQuery();
+            }
+            catch (Exception e)
+            {
+                SharedClass.Logger.Error("Exception while pushing BoxOfficeStats. " + e.ToString());
+            }
+            finally
+            {
+                if (sqlCon.State == ConnectionState.Open)
+                    sqlCon.Close();
+                try
+                {
+                    sqlCmd.Dispose();
+                }
+                catch (Exception e)
+                {
+                    //if(e is NullReferenceException)
+                    sqlCmd = null;
+                }
+                try
+                {
+                   sqlCon.Dispose();
+                }
+                catch (Exception e)
+                {
+                    //if(e is NullReferenceException)
+                    sqlCon = null;
+                }
+            }
+        }
         private void NotifyWebServer(ref BookingMessage bookingMessage)
         {
             SharedClass.Logger.Info("Getting Notify Parameters " + bookingMessage.PrintIdentifiers());
@@ -469,7 +563,7 @@ namespace BookingEngine
             JObject postingObject = new JObject();
             try
             {
-                sqlCmd.Parameters.Add(DataBaseParameters.JOB_ID, SqlDbType.BigInt).Value = bookingMessage.JobId;
+                sqlCmd.Parameters.Add(DataBaseParameters.JOB_ID, SqlDbType.BigInt).Value = bookingMessage.JobId;                
                 sqlCmd.Parameters.Add(DataBaseParameters.NOTIFY_URL, SqlDbType.VarChar, 200).Direction = ParameterDirection.Output;
                 da.SelectCommand = sqlCmd;
                 da.Fill(ds);
@@ -539,6 +633,7 @@ namespace BookingEngine
                 SharedClass.Logger.Error("Exception while notifying " + bookingMessage.PrintIdentifiers() + ", Reason : " + e.ToString());
                 if (attempt <= SharedClass.NotifyMaxFailedAttempts)
                 {
+                    ++attempt;
                     SharedClass.Logger.Info("NotifyAttempt (" + attempt + ")" + bookingMessage.PrintIdentifiers());
                     goto notifyRetry;
                 }
@@ -696,17 +791,19 @@ namespace BookingEngine
             SharedClass.InitializeLogger();
             SharedClass.ConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ConnectionString"].ConnectionString;
             SharedClass.SQSQueueArn = System.Configuration.ConfigurationManager.AppSettings["SQSQueueArn"];
+            if (System.Configuration.ConfigurationManager.ConnectionStrings["BoxOfficeConnectionString"] != null)
+                SharedClass.BoxOfficeConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["BoxOfficeConnectionString"].ConnectionString;
             if (System.Configuration.ConfigurationManager.AppSettings["NotifyMaxFailedAttempts"] != null)
             {
                 byte tempValue = SharedClass.NotifyMaxFailedAttempts;
                 if(byte.TryParse(System.Configuration.ConfigurationManager.AppSettings["NotifyMaxFailedAttempts"].ToString(), out tempValue))
                     SharedClass.NotifyMaxFailedAttempts = tempValue;
             }
-            if (System.Configuration.ConfigurationManager.AppSettings["PollingInterval"] != null)
+            if (System.Configuration.ConfigurationManager.AppSettings["BookingClientSleepTimeInSeconds"] != null)
             {
-                byte tempValue = SharedClass.PollingInterval;
-                if (byte.TryParse(System.Configuration.ConfigurationManager.AppSettings["PollingInterval"].ToString(), out tempValue))
-                    SharedClass.PollingInterval = tempValue;
+                byte tempValue = SharedClass.BookingClientSleepTimeInSeconds;
+                if (byte.TryParse(System.Configuration.ConfigurationManager.AppSettings["BookingClientSleepTimeInSeconds"].ToString(), out tempValue))
+                    SharedClass.BookingClientSleepTimeInSeconds = tempValue;
             }
         }
         private void UpdateServiceStatus(bool isStopped)
@@ -718,7 +815,7 @@ namespace BookingEngine
             {
                 sqlCmd.CommandType = CommandType.StoredProcedure;
                 sqlCmd.Parameters.Add(DataBaseParameters.SERVICE_NAME, SqlDbType.VarChar, 20).Value = "BookingEngine";
-                sqlCmd.Parameters.Add(DataBaseParameters.IS_STOPPED, SqlDbType.Bit).Value = false;
+                sqlCmd.Parameters.Add(DataBaseParameters.IS_STOPPED, SqlDbType.Bit).Value = isStopped;
                 sqlCon.Open();
                 sqlCmd.ExecuteNonQuery();
             }

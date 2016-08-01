@@ -12,5 +12,9 @@ namespace BookingEngine
         {
             return Convert.ToInt64((input - new DateTime(1970, 1, 1, 0, 0, 0)).TotalSeconds);
         }
+        public static string ToString(this object input)
+        {
+            return input.Equals(DBNull.Value) ? "NULL" : input.ToString();
+        }
     }
 }

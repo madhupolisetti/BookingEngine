@@ -11,13 +11,13 @@ namespace BookingEngine
     {
         #region PRIVATE VARIABLES
         private static string _connectionString = string.Empty;
+        private static string _boxOfficeConnectionString = string.Empty;
         private static ILog _logger = null;
         private static bool _hasStopSignal = true;
         private static bool _isServiceCleaned = true;
         private static byte _bookingClientsCount = 1;
         private static byte _subscribersCount = 1;
         private static byte _notifyMaxFailedAttempts = 3;
-        private static byte _pollingInterval = 5;
         private static string _sqsQueueArn = string.Empty;
         private static string _notifyAuthUserName = string.Empty;
         private static string _notifyAuthPassword = string.Empty;
@@ -25,6 +25,7 @@ namespace BookingEngine
         private static byte _deQueueBatchCount = 10;
         private static byte _messageVisibilityTimeOut = 120;
         private static byte _extendMessageVisibilityBy = 60;
+        private static byte _bookingClientSleepTimeInSeconds = 2;
         #endregion
         #region METHODS
         public static void InitializeLogger()
@@ -32,6 +33,7 @@ namespace BookingEngine
             GlobalContext.Properties["LogName"] = DateTime.Now.ToString("yyyyMMdd");
             log4net.Config.XmlConfigurator.Configure();
             _logger = LogManager.GetLogger("Log");
+            _logger.Info("Log Initialized");
         }
         #endregion
         #region PROPERTIES
@@ -39,6 +41,11 @@ namespace BookingEngine
         {
             get { return _connectionString; }
             set { _connectionString = value; }
+        }
+        public static string BoxOfficeConnectionString
+        {
+            get { return _boxOfficeConnectionString; }
+            set { _boxOfficeConnectionString = value; }
         }
         public static ILog Logger
         {
@@ -58,11 +65,6 @@ namespace BookingEngine
         {
             get { return _notifyMaxFailedAttempts; }
             set { _notifyMaxFailedAttempts = value; }
-        }
-        public static byte PollingInterval
-        {
-            get { return _pollingInterval; }
-            set { _pollingInterval = value; }
         }
         public static string SQSQueueArn
         {
@@ -103,6 +105,11 @@ namespace BookingEngine
         {
             get { return _subscribersCount; }
             set { _subscribersCount = value; }
+        }
+        public static byte BookingClientSleepTimeInSeconds
+        {
+            get { return _bookingClientSleepTimeInSeconds; }
+            set { _bookingClientSleepTimeInSeconds = value; }
         }
         #endregion
     }

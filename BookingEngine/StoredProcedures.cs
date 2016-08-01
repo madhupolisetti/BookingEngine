@@ -15,6 +15,7 @@ namespace BookingEngine
         public const string RELEASE_PROCEED = "ReleaseProceed";
         public const string GET_NOTIFY_PARAMETERE = "GetNotifyParameters";
         public const string UPDATE_NOTIFY_RESPONSE = "UpdateNotifyResponse";
+        public const string PUSH_BOX_OFFICE_STATS = "PushBoxOfficeStats";
         public const string UPDATE_SERVICE_STATUS = "UpdateServiceStatus";
     }
 }
