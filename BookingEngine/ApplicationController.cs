@@ -214,9 +214,9 @@ namespace BookingEngine
                                 case BookingActions.LOCK:
                                     this.CreateJobIdForBookingMessage(bookingMessage, messageBody, out jobId);
                                     break;
-                                case BookingActions.RELEASE:
-                                    this.CreateJobIdForBookingMessage(bookingMessage, messageBody, out jobId);
-                                    break;
+                                //case BookingActions.RELEASE:
+                                //    this.CreateJobIdForBookingMessage(bookingMessage, messageBody, out jobId);
+                                //    break;
                                 case BookingActions.CONFIRM:
                                     this.CreateJobIdForBookingMessage(bookingMessage, messageBody, out jobId);
                                     break;
@@ -380,6 +380,7 @@ namespace BookingEngine
                 sqlCmd.Parameters.Add(DataBaseParameters.MESSAGE, SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
                 if (this._lockSqlConnection.State != ConnectionState.Open)
                     this._lockSqlConnection.Open();
+                sqlCmd.ExecuteNonQuery();
                 bookingMessage.IsBookingActionSuccess = Convert.ToBoolean(sqlCmd.Parameters[DataBaseParameters.SUCCESS].Value);
                 bookingMessage.BookingActionResponseMessage = sqlCmd.Parameters[DataBaseParameters.MESSAGE].Value.ToString();
                 SharedClass.Logger.Info("LOCK Result for " + bookingMessage.PrintIdentifiers() + ". " + bookingMessage.IsBookingActionSuccess + ", Message : " + bookingMessage.BookingActionResponseMessage);
@@ -408,18 +409,16 @@ namespace BookingEngine
             SharedClass.Logger.Info("Executing CONFIRM " + bookingMessage.PrintIdentifiers());
             SqlCommand sqlCmd = new SqlCommand(StoredProcedures.CONFIRM_SEATS, this._confirmSqlConnection);
             sqlCmd.CommandType = CommandType.StoredProcedure;
-            SqlDataAdapter da = new SqlDataAdapter();
-            DataSet ds = new DataSet();
             try
             {
                 sqlCmd.Parameters.Add(DataBaseParameters.JOB_ID, SqlDbType.BigInt).Value = bookingMessage.JobId;
                 sqlCmd.Parameters.Add(DataBaseParameters.SUCCESS, SqlDbType.Bit).Direction = ParameterDirection.Output;
                 sqlCmd.Parameters.Add(DataBaseParameters.MESSAGE, SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
-                da.SelectCommand = sqlCmd;
-                da.Fill(ds);
+                if (this._confirmSqlConnection.State != ConnectionState.Open)
+                    this._confirmSqlConnection.Open();
+                sqlCmd.ExecuteNonQuery();
                 bookingMessage.IsBookingActionSuccess = Convert.ToBoolean(sqlCmd.Parameters[DataBaseParameters.SUCCESS].Value);
                 bookingMessage.BookingActionResponseMessage = sqlCmd.Parameters[DataBaseParameters.MESSAGE].Value.ToString();
-                bookingMessage.BookingActionResult = ds;
                 SharedClass.Logger.Info("CONFIRM Result for " + bookingMessage.PrintIdentifiers() + ". " + bookingMessage.IsBookingActionSuccess + ", Message : " + bookingMessage.BookingActionResponseMessage);
             }
             catch (Exception e)
@@ -444,18 +443,16 @@ namespace BookingEngine
             SharedClass.Logger.Info("Executing CANCEL " + bookingMessage.PrintIdentifiers());
             SqlCommand sqlCmd = new SqlCommand(StoredProcedures.RELEASE_SEATS, this._confirmSqlConnection);
             sqlCmd.CommandType = CommandType.StoredProcedure;
-            SqlDataAdapter da = new SqlDataAdapter();
-            DataSet ds = new DataSet();
             try
             {
                 sqlCmd.Parameters.Add(DataBaseParameters.JOB_ID, SqlDbType.BigInt).Value = bookingMessage.JobId;
                 sqlCmd.Parameters.Add(DataBaseParameters.SUCCESS, SqlDbType.Bit).Direction = ParameterDirection.Output;
                 sqlCmd.Parameters.Add(DataBaseParameters.MESSAGE, SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
-                da.SelectCommand = sqlCmd;
-                da.Fill(ds);
+                if (this._releaseSqlConnection.State != ConnectionState.Open)
+                    this._releaseSqlConnection.Open();
+                sqlCmd.ExecuteNonQuery();
                 bookingMessage.IsBookingActionSuccess = Convert.ToBoolean(sqlCmd.Parameters[DataBaseParameters.SUCCESS].Value);
                 bookingMessage.BookingActionResponseMessage = sqlCmd.Parameters[DataBaseParameters.MESSAGE].Value.ToString();
-                bookingMessage.BookingActionResult = ds;
                 SharedClass.Logger.Info("CANCEL Result for " + bookingMessage.PrintIdentifiers() + ". " + bookingMessage.IsBookingActionSuccess + ", Message : " + bookingMessage.BookingActionResponseMessage);
             }
             catch (Exception e)
@@ -480,18 +477,16 @@ namespace BookingEngine
             SharedClass.Logger.Info("Executing MANUAL_CONFIRM " + bookingMessage.PrintIdentifiers());
             SqlCommand sqlCmd = new SqlCommand("ManualBooking", this._manualBookingSqlConnection);
             sqlCmd.CommandType = CommandType.StoredProcedure;
-            SqlDataAdapter da = new SqlDataAdapter();
-            DataSet ds = new DataSet();
             try
             {
                 sqlCmd.Parameters.Add(DataBaseParameters.JOB_ID, SqlDbType.BigInt).Value = bookingMessage.JobId;
                 sqlCmd.Parameters.Add(DataBaseParameters.SUCCESS, SqlDbType.Bit).Direction = ParameterDirection.Output;
                 sqlCmd.Parameters.Add(DataBaseParameters.MESSAGE, SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
-                da.SelectCommand = sqlCmd;
-                da.Fill(ds);
+                if (this._manualBookingSqlConnection.State != ConnectionState.Open)
+                    this._manualBookingSqlConnection.Open();
+                sqlCmd.ExecuteNonQuery();
                 bookingMessage.IsBookingActionSuccess = Convert.ToBoolean(sqlCmd.Parameters[DataBaseParameters.SUCCESS].Value);
                 bookingMessage.BookingActionResponseMessage = sqlCmd.Parameters[DataBaseParameters.MESSAGE].Value.ToString();
-                bookingMessage.BookingActionResult = ds;
                 SharedClass.Logger.Info("MANUAL_CONFIRM Result for " + bookingMessage.PrintIdentifiers() + ". " + bookingMessage.IsBookingActionSuccess + ", Message : " + bookingMessage.BookingActionResponseMessage);
             }
             catch (Exception e)
@@ -791,8 +786,6 @@ namespace BookingEngine
             SharedClass.InitializeLogger();
             SharedClass.ConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ConnectionString"].ConnectionString;
             SharedClass.SQSQueueArn = System.Configuration.ConfigurationManager.AppSettings["SQSQueueArn"];
-            if (System.Configuration.ConfigurationManager.ConnectionStrings["BoxOfficeConnectionString"] != null)
-                SharedClass.BoxOfficeConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["BoxOfficeConnectionString"].ConnectionString;
             if (System.Configuration.ConfigurationManager.AppSettings["NotifyMaxFailedAttempts"] != null)
             {
                 byte tempValue = SharedClass.NotifyMaxFailedAttempts;

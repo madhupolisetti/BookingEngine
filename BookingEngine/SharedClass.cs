@@ -11,7 +11,6 @@ namespace BookingEngine
     {
         #region PRIVATE VARIABLES
         private static string _connectionString = string.Empty;
-        private static string _boxOfficeConnectionString = string.Empty;
         private static ILog _logger = null;
         private static bool _hasStopSignal = true;
         private static bool _isServiceCleaned = true;
@@ -41,11 +40,6 @@ namespace BookingEngine
         {
             get { return _connectionString; }
             set { _connectionString = value; }
-        }
-        public static string BoxOfficeConnectionString
-        {
-            get { return _boxOfficeConnectionString; }
-            set { _boxOfficeConnectionString = value; }
         }
         public static ILog Logger
         {
