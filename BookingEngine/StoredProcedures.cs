@@ -17,5 +17,6 @@ namespace BookingEngine
         public const string UPDATE_NOTIFY_RESPONSE = "UpdateNotifyResponse";
         public const string PUSH_BOX_OFFICE_STATS = "PushBoxOfficeStats";
         public const string UPDATE_SERVICE_STATUS = "UpdateServiceStatus";
+        public const string GET_MOVIES_TO_SYNC = "GetMoviesToSync";
     }
 }

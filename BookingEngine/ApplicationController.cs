@@ -198,15 +198,18 @@ namespace BookingEngine
                             else if (messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString().Equals(BookingActions.STATS))
                             {
                                 this.PushStats();
-                                this.DeleteMessageFromSQSQueue(bookingMessage);
+                                continue;
+                            }
+                            else if (messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString().Equals(BookingActions.SYNC_MOVIES))
+                            {
+                                this.SyncMovies(ref bookingMessage);
                                 continue;
                             }
                             else if (messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString().Equals(BookingActions.RELEASE_ON_DEMAND, StringComparison.CurrentCultureIgnoreCase))
-                            { 
+                            {
                                 //RELEASE
-                                this.DeleteMessageFromSQSQueue(bookingMessage);
                                 continue;
-                            }
+                            }                            
                             jobId = 0;
                             bookingMessage.PublishTimeStamp = Convert.ToInt64(messageBody.SelectToken(MessageBodyAttributes.PUBLISH_TIME_STAMP).ToString());
                             switch (messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString())
@@ -245,8 +248,8 @@ namespace BookingEngine
                                     case BookingActions.MANUAL_BOOKING:
                                         this.ManualBooking(ref bookingMessage);
                                         break;
-                                }
                                 NotifyWebServer(ref bookingMessage);
+                                }
                             }
                         }
                         catch (Exception e)
@@ -546,6 +549,61 @@ namespace BookingEngine
                     //if(e is NullReferenceException)
                     sqlCon = null;
                 }
+            }
+        }
+        private void SyncMovies(ref BookingMessage bookingMessage)
+        {
+            SqlConnection sqlCon = new SqlConnection(SharedClass.ConnectionString);
+            SqlCommand sqlCmd = new SqlCommand(StoredProcedures.GET_MOVIES_TO_SYNC, sqlCon);
+            SqlDataAdapter da = null;
+            DataSet ds = null;
+            System.Xml.XmlDocument xmlDocument = new System.Xml.XmlDocument();
+            System.Xml.XmlElement rootElement = xmlDocument.CreateElement("Movies");
+            try
+            {
+                sqlCmd.CommandType = CommandType.StoredProcedure;
+                sqlCmd.Parameters.Add(DataBaseParameters.INVOKE_SYNC_FROM_BOX_OFFICE, SqlDbType.Bit).Value = true;
+                sqlCmd.Parameters.Add(DataBaseParameters.SUCCESS, SqlDbType.Bit).Direction = ParameterDirection.Output;
+                sqlCmd.Parameters.Add(DataBaseParameters.MESSAGE, SqlDbType.VarChar, 1000).Direction = ParameterDirection.Output;
+                sqlCmd.Parameters.Add(DataBaseParameters.CINEMA_ID, SqlDbType.Int).Direction = ParameterDirection.Output;
+                sqlCmd.Parameters.Add(DataBaseParameters.CINEMA_NAME, SqlDbType.VarChar, 50).Direction = ParameterDirection.Output;
+                sqlCmd.Parameters.Add(DataBaseParameters.NOTIFY_URL, SqlDbType.VarChar, 200).Direction = ParameterDirection.Output;
+                da = new SqlDataAdapter();
+                da.SelectCommand = sqlCmd;
+                ds = new DataSet();
+                da.Fill(ds);
+                if (Convert.ToBoolean(sqlCmd.Parameters[DataBaseParameters.SUCCESS].Value))
+                {
+                    if (ds.Tables.Count > 0 && ds.Tables[0].Rows.Count > 0)
+                    {
+                        SharedClass.Logger.Info("Movies To Sync : " + ds.Tables[0].Rows.Count.ToString());
+                        rootElement.SetAttribute("CinemaId", sqlCmd.Parameters[DataBaseParameters.CINEMA_ID].Value.ToString());
+                        rootElement.SetAttribute("CinemaName", sqlCmd.Parameters[DataBaseParameters.CINEMA_NAME].Value.ToString());
+                        xmlDocument.AppendChild(rootElement);
+                        foreach (DataRow movieRow in ds.Tables[0].Rows)
+                        {
+                            System.Xml.XmlElement movieElement = xmlDocument.CreateElement("Movie");
+                            foreach (DataColumn movieProperty in movieRow.Table.Columns)
+                            {
+                                movieElement.SetAttribute(movieProperty.ColumnName, movieRow[movieProperty.ColumnName].ToString());
+                            }
+                            rootElement.AppendChild(movieElement);
+                        }
+                        this.Notify(sqlCmd.Parameters[DataBaseParameters.NOTIFY_URL].Value.ToString(), xmlDocument.OuterXml, ref bookingMessage);
+                    }
+                    else
+                    {
+                        SharedClass.Logger.Info("No Movies found to Sync");
+                    }
+                }
+                else
+                {
+                    SharedClass.Logger.Error("MoviesSync ProcedureCall unsuccessful. " + sqlCmd.Parameters[DataBaseParameters.MESSAGE].Value.ToString());
+                }
+            }
+            catch (Exception e)
+            {
+                SharedClass.Logger.Error("Exception while syncing movies. Reason : " + e.ToString());
             }
         }
         private void NotifyWebServer(ref BookingMessage bookingMessage)

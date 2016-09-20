@@ -31,6 +31,10 @@ namespace BookingEngine
         public const string MESSAGE = "@Message";
         public const string NOTIFY_URL = "@NotifyUrl";
         public const string NOTIFY_RESPONSE = "@NotifyResponse";
+        
+        public const string CINEMA_ID = "@CinemaId";
+        public const string CINEMA_NAME = "@CinemaName";
+        public const string INVOKE_SYNC_FROM_BOX_OFFICE = "@InvokeSyncFromBoxOffice";
 
         public const string RELEASE_SEATS_TABLE = "@ReleaseSeatsTable";
         public const string RELEASE_TYPE = "@ReleaseType";

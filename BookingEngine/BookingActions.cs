@@ -14,5 +14,6 @@ namespace BookingEngine
         public const string MANUAL_BOOKING = "manual_booking";
         public const string STATS = "stats";
         public const string RELEASE_ON_DEMAND = "ROD";
+        public const string SYNC_MOVIES = "sync_movies";
     }
 }
