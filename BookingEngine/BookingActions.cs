@@ -10,7 +10,7 @@ namespace BookingEngine
     {
         public const string LOCK = "block";
         public const string CONFIRM = "confirm";
-        public const string RELEASE = "cancel";
+        public const string CANCEL = "cancel";
         public const string MANUAL_BOOKING = "manual_booking";
         public const string STATS = "stats";
         public const string RELEASE_ON_DEMAND = "ROD";

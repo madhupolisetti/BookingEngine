@@ -226,6 +226,9 @@ namespace BookingEngine
                                 case BookingActions.MANUAL_BOOKING:
                                     this.CreateJobIdForBookingMessage(bookingMessage, messageBody, out jobId);
                                     break;
+                                case BookingActions.CANCEL:
+                                    this.CreateJobIdForBookingMessage(bookingMessage, messageBody, out jobId);
+                                    break;
                                 default:
                                     SharedClass.Logger.Error("Invalid Action " + messageBody.SelectToken(MessageBodyAttributes.BOOKING_ACTION).ToString());
                                     break;
@@ -238,7 +241,7 @@ namespace BookingEngine
                                     case BookingActions.LOCK:
                                         this.LockSeats(ref bookingMessage);
                                         break;
-                                    case BookingActions.RELEASE:
+                                    case BookingActions.CANCEL:
                                         if (this.ReleaseProceed(bookingMessage.JobId))
                                             this.ReleaseSeats(ref bookingMessage);
                                         break;
@@ -247,9 +250,9 @@ namespace BookingEngine
                                         break;
                                     case BookingActions.MANUAL_BOOKING:
                                         this.ManualBooking(ref bookingMessage);
-                                        break;
-                                NotifyWebServer(ref bookingMessage);
+                                        break;                                
                                 }
+                                NotifyWebServer(ref bookingMessage);
                             }
                         }
                         catch (Exception e)
@@ -293,15 +296,18 @@ namespace BookingEngine
             {
                 sqlCmd.Parameters.Add(DataBaseParameters.BOX_OFFICE_SHOW_ID, SqlDbType.Int).Value = 
                     Convert.ToInt32(messageBody.SelectToken(MessageBodyAttributes.BOX_OFFICE_SHOW_ID).ToString());
+                
+                if(messageBody.SelectToken(MessageBodyAttributes.BOX_OFFICE_MOVIE_ID) != null)
+                    sqlCmd.Parameters.Add(DataBaseParameters.BOX_OFFICE_MOVIE_ID_FROM_WEB, SqlDbType.Int).Value =
+                        Convert.ToInt32(messageBody.SelectToken(MessageBodyAttributes.BOX_OFFICE_MOVIE_ID).ToString());
+                
+                if(messageBody.SelectToken(MessageBodyAttributes.BOX_OFFICE_SCREEN_ID) != null)
+                    sqlCmd.Parameters.Add(DataBaseParameters.BOX_OFFICE_SCREEN_ID_FROM_WEB, SqlDbType.TinyInt).Value =
+                        Convert.ToInt16(messageBody.SelectToken(MessageBodyAttributes.BOX_OFFICE_SCREEN_ID).ToString());
 
-                sqlCmd.Parameters.Add(DataBaseParameters.BOX_OFFICE_MOVIE_ID_FROM_WEB, SqlDbType.Int).Value =
-                    Convert.ToInt32(messageBody.SelectToken(MessageBodyAttributes.BOX_OFFICE_MOVIE_ID).ToString());
-
-                sqlCmd.Parameters.Add(DataBaseParameters.BOX_OFFICE_SCREEN_ID_FROM_WEB, SqlDbType.TinyInt).Value =
-                    Convert.ToInt16(messageBody.SelectToken(MessageBodyAttributes.BOX_OFFICE_SCREEN_ID).ToString());
-
-                sqlCmd.Parameters.Add(DataBaseParameters.BOX_OFFICE_SHOW_TIME_FROM_WEB, SqlDbType.DateTime).Value =
-                    DateTime.Parse(messageBody.SelectToken(MessageBodyAttributes.SHOW_TIME).ToString());
+                if(messageBody.SelectToken(MessageBodyAttributes.SHOW_TIME) != null)
+                    sqlCmd.Parameters.Add(DataBaseParameters.BOX_OFFICE_SHOW_TIME_FROM_WEB, SqlDbType.DateTime).Value =
+                        DateTime.Parse(messageBody.SelectToken(MessageBodyAttributes.SHOW_TIME).ToString());
 
                 sqlCmd.Parameters.Add(DataBaseParameters.SEAT_NUMBERS, SqlDbType.VarChar, 500).Value =
                     messageBody.SelectToken(MessageBodyAttributes.SEAT_NUMBERS).ToString();
@@ -444,7 +450,7 @@ namespace BookingEngine
         private void ReleaseSeats(ref BookingMessage bookingMessage)
         {
             SharedClass.Logger.Info("Executing CANCEL " + bookingMessage.PrintIdentifiers());
-            SqlCommand sqlCmd = new SqlCommand(StoredProcedures.RELEASE_SEATS, this._confirmSqlConnection);
+            SqlCommand sqlCmd = new SqlCommand(StoredProcedures.RELEASE_SEATS, this._releaseSqlConnection);
             sqlCmd.CommandType = CommandType.StoredProcedure;
             try
             {
