@@ -81,7 +81,7 @@ namespace BookingEngine
         }
         public string PrintIdentifiers()
         {
-            return "JobId : " + this.JobId.ToString() + ", MessageId : " + this.Instructions.MessageId;
+            return string.Format("JobId : {0}, MessageId : ", this._jobId, this.Instructions.MessageId);
         }
     }
 }

@@ -17,7 +17,7 @@ namespace BookingEngine
         private static byte _bookingClientsCount = 1;
         private static byte _subscribersCount = 1;
         private static byte _notifyMaxFailedAttempts = 3;
-        private static string _sqsQueueArn = string.Empty;
+        private static string _sqsQueueUrl = string.Empty;
         private static string _notifyAuthUserName = string.Empty;
         private static string _notifyAuthPassword = string.Empty;
         private static byte _receiveMessageWaitTime = 20;
@@ -60,10 +60,10 @@ namespace BookingEngine
             get { return _notifyMaxFailedAttempts; }
             set { _notifyMaxFailedAttempts = value; }
         }
-        public static string SQSQueueArn
+        public static string SQSQueueUrl
         {
-            get { return _sqsQueueArn; }
-            set { _sqsQueueArn = value; }
+            get { return _sqsQueueUrl; }
+            set { _sqsQueueUrl = value; }
         }
         public static string NotifyAuthUserName
         {
