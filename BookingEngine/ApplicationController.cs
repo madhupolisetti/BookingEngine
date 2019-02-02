@@ -17,7 +17,8 @@ namespace BookingEngine
 {
     public class ApplicationController
     {
-        private IAmazonSQS SQSCLIENT = AWSClientFactory.CreateAmazonSQSClient(Amazon.RegionEndpoint.USEast1);
+        //private IAmazonSQS SQSCLIENT = AWSClientFactory.CreateAmazonSQSClient(Amazon.RegionEndpoint.USEast1);
+        private IAmazonSQS SQSCLIENT = AWSClientFactory.CreateAmazonSQSClient();
         private Thread[] _bookingClients = null;
         private Thread[] _subscribers = null;
         private byte _bookingClientsRunning = 0;
@@ -415,7 +416,7 @@ namespace BookingEngine
         }
         private void ConfirmSeats(ref BookingMessage bookingMessage)
         {
-            SharedClass.Logger.Info(string.Format("Executing CONFIRM {0}" + bookingMessage.PrintIdentifiers()));
+            SharedClass.Logger.Info(string.Format("Executing CONFIRM {0}", bookingMessage.PrintIdentifiers()));
             SqlCommand sqlCmd = new SqlCommand(StoredProcedures.CONFIRM_SEATS, this._confirmSqlConnection);
             sqlCmd.CommandType = CommandType.StoredProcedure;
             try
