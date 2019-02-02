@@ -15,5 +15,27 @@ namespace BookingEngine
         {
             InitializeComponent();
         }
+        protected override void OnBeforeInstall(IDictionary savedState)
+        {
+            this.SetServiceName();
+            base.OnBeforeInstall(savedState);
+        }
+        protected override void OnBeforeUninstall(IDictionary savedState)
+        {
+            this.SetServiceName();
+            base.OnBeforeUninstall(savedState);
+        }
+        private void SetServiceName()
+        {
+            if (Context.Parameters.ContainsKey("ServiceName"))
+            {
+                serviceInstaller1.ServiceName = Context.Parameters["ServiceName"];
+            }
+
+            if (Context.Parameters.ContainsKey("DisplayName"))
+            {
+                serviceInstaller1.DisplayName = Context.Parameters["DisplayName"];
+            }
+        }
     }
 }
