@@ -16,7 +16,7 @@ namespace BookingEngine
         private static bool _isServiceCleaned = true;
         private static byte _bookingClientsCount = 1;
         private static byte _subscribersCount = 1;
-        private static byte _notifyMaxFailedAttempts = 3;
+        private static byte _maximumCallBackRetries = 3;
         private static string _sqsQueueUrl = string.Empty;
         private static string _notifyAuthUserName = string.Empty;
         private static string _notifyAuthPassword = string.Empty;
@@ -55,10 +55,10 @@ namespace BookingEngine
             get { return _isServiceCleaned; }
             set { _isServiceCleaned = value; }
         }
-        public static byte NotifyMaxFailedAttempts
+        public static byte MaximumCallBackRetries
         {
-            get { return _notifyMaxFailedAttempts; }
-            set { _notifyMaxFailedAttempts = value; }
+            get { return _maximumCallBackRetries; }
+            set { _maximumCallBackRetries = value; }
         }
         public static string SQSQueueUrl
         {

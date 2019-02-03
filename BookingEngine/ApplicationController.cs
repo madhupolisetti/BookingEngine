@@ -125,6 +125,7 @@ namespace BookingEngine
             {
                 try
                 {
+                    receiveResponse = null;
                     receiveRequest = new ReceiveMessageRequest(SharedClass.SQSQueueUrl);
                     receiveRequest.WaitTimeSeconds = SharedClass.ReceiveMessageWaitTime;
                     receiveRequest.MaxNumberOfMessages = SharedClass.DeQueueBatchCount;
@@ -691,7 +692,7 @@ namespace BookingEngine
             catch (Exception e)
             {
                 SharedClass.Logger.Error(string.Format("Exception while notifying {0}, Reason: {1}", bookingMessage.PrintIdentifiers(), e.ToString()));
-                if (attempt <= SharedClass.NotifyMaxFailedAttempts)
+                if (attempt <= SharedClass.MaximumCallBackRetries)
                 {
                     ++attempt;
                     SharedClass.Logger.Info(string.Format("NotifyAttempt ({0}). {1}", attempt, bookingMessage.PrintIdentifiers()));
@@ -700,7 +701,7 @@ namespace BookingEngine
                 else
                 {
                     bookingMessage.NotifyResponse = string.Format("EXCEPTION:{0}", e.ToString());
-                    SharedClass.Logger.Error(string.Format("Max Failed Attempts ({0}) Reached {1}", SharedClass.NotifyMaxFailedAttempts, bookingMessage.PrintIdentifiers()));
+                    SharedClass.Logger.Error(string.Format("Max Failed Attempts ({0}) Reached {1}", SharedClass.MaximumCallBackRetries, bookingMessage.PrintIdentifiers()));
                 } 
             }            
             UpdateNotifyResponse(ref bookingMessage);
@@ -797,14 +798,14 @@ namespace BookingEngine
                     SharedClass.Logger.Error(string.Format("Exception while deleting {0}, Reason: {1}", bookingMessage.PrintIdentifiers(), e.ToString()));
             }
         }
-        private void ChangeMessageVisibility(BookingMessage bookingMessage, byte visibilityTimeOut)
+        private void ChangeMessageVisibility(BookingMessage bookingMessage, byte visibilityTimeOutInSeconds)
         {
             SharedClass.Logger.Info(string.Format("Changing Message Visibility {0}", bookingMessage.PrintIdentifiers()));
             ChangeMessageVisibilityRequest request = new ChangeMessageVisibilityRequest();
             ChangeMessageVisibilityResponse response = null;
             request.QueueUrl = SharedClass.SQSQueueUrl;
             request.ReceiptHandle = bookingMessage.Instructions.ReceiptHandle;
-            request.VisibilityTimeout = visibilityTimeOut;
+            request.VisibilityTimeout = visibilityTimeOutInSeconds;
             try
             {
                 response = SQSCLIENT.ChangeMessageVisibility(request);
@@ -850,19 +851,37 @@ namespace BookingEngine
         {
             SharedClass.InitializeLogger();
             SharedClass.ConnectionString = System.Configuration.ConfigurationManager.ConnectionStrings["ConnectionString"].ConnectionString;
-            SharedClass.SQSQueueUrl = System.Configuration.ConfigurationManager.AppSettings["SQSQueueArn"];
-            if (System.Configuration.ConfigurationManager.AppSettings["NotifyMaxFailedAttempts"] != null)
+            SharedClass.SQSQueueUrl = System.Configuration.ConfigurationManager.AppSettings["SQSQueueURL"];
+            SharedClass.Logger.Info("SQSQueueURL: " + SharedClass.SQSQueueUrl);
+            SharedClass.Logger.Info("ConnectionString: " + SharedClass.ConnectionString);
+            if(System.Configuration.ConfigurationManager.AppSettings["SQSSubscribersCount"] != null)
             {
-                byte tempValue = SharedClass.NotifyMaxFailedAttempts;
-                if(byte.TryParse(System.Configuration.ConfigurationManager.AppSettings["NotifyMaxFailedAttempts"].ToString(), out tempValue))
-                    SharedClass.NotifyMaxFailedAttempts = tempValue;
+                byte tempValue = SharedClass.SubscribersCount;
+                if (byte.TryParse(System.Configuration.ConfigurationManager.AppSettings["SQSSubscribersCount"].ToString(), out tempValue))
+                    SharedClass.SubscribersCount = tempValue;
             }
+            SharedClass.Logger.Info("SQSSubscribersCount: " + SharedClass.SubscribersCount.ToString());
+            if (System.Configuration.ConfigurationManager.AppSettings["MaximumCallBackRetries"] != null)
+            {
+                byte tempValue = SharedClass.MaximumCallBackRetries;
+                if(byte.TryParse(System.Configuration.ConfigurationManager.AppSettings["MaximumCallBackRetries"].ToString(), out tempValue))
+                    SharedClass.MaximumCallBackRetries = tempValue;
+            }
+            SharedClass.Logger.Info("MaximumCallBackRetries : " + SharedClass.MaximumCallBackRetries.ToString());
             if (System.Configuration.ConfigurationManager.AppSettings["BookingClientSleepTimeInSeconds"] != null)
             {
                 byte tempValue = SharedClass.BookingClientSleepTimeInSeconds;
                 if (byte.TryParse(System.Configuration.ConfigurationManager.AppSettings["BookingClientSleepTimeInSeconds"].ToString(), out tempValue))
                     SharedClass.BookingClientSleepTimeInSeconds = tempValue;
             }
+            SharedClass.Logger.Info("BookingClientSleepTimeInSeconds : " + SharedClass.BookingClientSleepTimeInSeconds.ToString());
+            if(System.Configuration.ConfigurationManager.AppSettings["BookingClientsCount"] != null)
+            {
+                byte tempValue = SharedClass.BookingClientsCount;
+                if (byte.TryParse(System.Configuration.ConfigurationManager.AppSettings["BookingClientsCount"].ToString(), out tempValue))
+                    SharedClass.BookingClientsCount = tempValue;
+            }
+            SharedClass.Logger.Info("BookingClientsCount : " + SharedClass.BookingClientsCount);
         }
         private void UpdateServiceStatus(bool isStopped)
         {
@@ -872,7 +891,9 @@ namespace BookingEngine
             try
             {
                 sqlCmd.CommandType = CommandType.StoredProcedure;
-                sqlCmd.Parameters.Add(DataBaseParameters.SERVICE_NAME, SqlDbType.VarChar, 20).Value = "BookingEngine";
+                string serviceName = this.GetServiceName();
+                SharedClass.Logger.Info("Service Name : " + (serviceName.Length > 0 ? serviceName : "BookingEngine"));
+                sqlCmd.Parameters.Add(DataBaseParameters.SERVICE_NAME, SqlDbType.VarChar, 20).Value = serviceName.Length > 0 ? serviceName : "BookingEngine";
                 sqlCmd.Parameters.Add(DataBaseParameters.IS_STOPPED, SqlDbType.Bit).Value = isStopped;
                 sqlCon.Open();
                 sqlCmd.ExecuteNonQuery();
@@ -894,6 +915,23 @@ namespace BookingEngine
                 {
                 }
             }
+        }
+        private string GetServiceName()
+        {
+            string serviceName = string.Empty;
+            try
+            {
+                int processId = System.Diagnostics.Process.GetCurrentProcess().Id;
+                System.Management.ManagementObjectSearcher searcher = new System.Management.ManagementObjectSearcher("SELECT * FROM Win32_Service where ProcessId = " + processId);
+                System.Management.ManagementObjectCollection collection = searcher.Get();
+                serviceName = (string)collection.Cast<System.Management.ManagementBaseObject>().First()["Name"];
+            }
+            catch(Exception e)
+            {
+                serviceName = string.Empty;
+                SharedClass.Logger.Error(string.Format("Exception while fetching the service name from OS. Reason : {0}", e.ToString()));
+            }
+            return serviceName;
         }
     }
 }
