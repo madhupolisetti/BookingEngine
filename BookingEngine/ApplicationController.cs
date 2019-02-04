@@ -889,11 +889,13 @@ namespace BookingEngine
             SqlConnection sqlCon = new SqlConnection(SharedClass.ConnectionString);
             SqlCommand sqlCmd = new SqlCommand(StoredProcedures.UPDATE_SERVICE_STATUS, sqlCon);
             try
-            {
-                sqlCmd.CommandType = CommandType.StoredProcedure;
+            {   
                 string serviceName = this.GetServiceName();
-                SharedClass.Logger.Info("Service Name : " + (serviceName.Length > 0 ? serviceName : "BookingEngine"));
-                sqlCmd.Parameters.Add(DataBaseParameters.SERVICE_NAME, SqlDbType.VarChar, 20).Value = serviceName.Length > 0 ? serviceName : "BookingEngine";
+                serviceName = serviceName.Length > 0 ? serviceName : "BookingEngine";
+                SharedClass.Logger.Info("Service Name : " + serviceName);
+
+                sqlCmd.CommandType = CommandType.StoredProcedure;
+                sqlCmd.Parameters.Add(DataBaseParameters.SERVICE_NAME, SqlDbType.VarChar, 32).Value = serviceName;
                 sqlCmd.Parameters.Add(DataBaseParameters.IS_STOPPED, SqlDbType.Bit).Value = isStopped;
                 sqlCon.Open();
                 sqlCmd.ExecuteNonQuery();
