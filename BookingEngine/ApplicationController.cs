@@ -15,9 +15,9 @@ using System.IO;
 
 namespace BookingEngine
 {
+    /// <summary></summary>
     public class ApplicationController
     {
-        //private IAmazonSQS SQSCLIENT = AWSClientFactory.CreateAmazonSQSClient(Amazon.RegionEndpoint.USEast1);
         private IAmazonSQS SQSCLIENT = AWSClientFactory.CreateAmazonSQSClient();
         private Thread[] _bookingClients = null;
         private Thread[] _subscribers = null;
@@ -288,6 +288,10 @@ namespace BookingEngine
             --this._bookingClientsRunning;
             this._bookingClientsMutex.ReleaseMutex();
         }
+        /// <summary>Creates the job identifier for booking message.</summary>
+        /// <param name="bookingMessage">The booking message.</param>
+        /// <param name="messageBody">The message body.</param>
+        /// <param name="jobId">The job identifier.</param>
         private void CreateJobIdForBookingMessage(BookingMessage bookingMessage, JObject messageBody, out long jobId)
         {
             SharedClass.Logger.Info(string.Format("Creating JobId. {0}", bookingMessage.PrintIdentifiers()));
@@ -296,6 +300,9 @@ namespace BookingEngine
             sqlCmd.CommandType = CommandType.StoredProcedure;
             try
             {
+                sqlCmd.Parameters.Add(DataBaseParameters.BOX_OFFICE_BOOKING_USER_NAME, SqlDbType.VarChar, 20).Value = 
+                    messageBody.SelectToken(MessageBodyAttributes.BOX_OFFICE_BOOKING_USER_NAME) != null ? messageBody.SelectToken(MessageBodyAttributes.BOX_OFFICE_BOOKING_USER_NAME).ToString() : SharedClass.DefaultBOBookingUserName;
+
                 sqlCmd.Parameters.Add(DataBaseParameters.BOX_OFFICE_SHOW_ID, SqlDbType.Int).Value = 
                     Convert.ToInt32(messageBody.SelectToken(MessageBodyAttributes.BOX_OFFICE_SHOW_ID).ToString());
                 
@@ -854,6 +861,9 @@ namespace BookingEngine
             SharedClass.SQSQueueUrl = System.Configuration.ConfigurationManager.AppSettings["SQSQueueURL"];
             SharedClass.Logger.Info("SQSQueueURL: " + SharedClass.SQSQueueUrl);
             SharedClass.Logger.Info("ConnectionString: " + SharedClass.ConnectionString);
+            if (System.Configuration.ConfigurationManager.AppSettings["DefaultBOBookingUserName"] != null)
+                SharedClass.DefaultBOBookingUserName = System.Configuration.ConfigurationManager.AppSettings["DefaultBOBookingUserName"].ToString();
+            SharedClass.Logger.Info("DefaultBOBookingUserName: " + SharedClass.DefaultBOBookingUserName);
             if(System.Configuration.ConfigurationManager.AppSettings["SQSSubscribersCount"] != null)
             {
                 byte tempValue = SharedClass.SubscribersCount;

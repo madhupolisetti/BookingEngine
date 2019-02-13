@@ -25,9 +25,10 @@ namespace BookingEngine
         private static byte _messageVisibilityTimeOut = 120;
         private static byte _extendMessageVisibilityBy = 60;
         private static byte _bookingClientSleepTimeInSeconds = 2;
+        private static string _defaultBOBookingUserName = "ONLINE";
         #endregion
         #region METHODS
-        public static void InitializeLogger()
+        internal static void InitializeLogger()
         {
             GlobalContext.Properties["LogName"] = DateTime.Now.ToString("yyyyMMdd");
             log4net.Config.XmlConfigurator.Configure();
@@ -36,46 +37,46 @@ namespace BookingEngine
         }
         #endregion
         #region PROPERTIES
-        public static string ConnectionString
+        internal static string ConnectionString
         {
             get { return _connectionString; }
             set { _connectionString = value; }
         }
-        public static ILog Logger
+        internal static ILog Logger
         {
             get { return _logger; }
         }
-        public static bool HasStopSignal
+        internal static bool HasStopSignal
         {
             get { return _hasStopSignal; }
             set { _hasStopSignal = value; }
         }
-        public static bool IsServiceCleaned
+        internal static bool IsServiceCleaned
         {
             get { return _isServiceCleaned; }
             set { _isServiceCleaned = value; }
         }
-        public static byte MaximumCallBackRetries
+        internal static byte MaximumCallBackRetries
         {
             get { return _maximumCallBackRetries; }
             set { _maximumCallBackRetries = value; }
         }
-        public static string SQSQueueUrl
+        internal static string SQSQueueUrl
         {
             get { return _sqsQueueUrl; }
             set { _sqsQueueUrl = value; }
         }
-        public static string NotifyAuthUserName
+        internal static string NotifyAuthUserName
         {
             get { return _notifyAuthUserName; }
             set { _notifyAuthUserName = value; }
         }
-        public static string NotifyAuthPassword
+        internal static string NotifyAuthPassword
         {
             get { return _notifyAuthPassword; }
             set { _notifyAuthPassword = value; }
         }
-        public static byte ReceiveMessageWaitTime
+        internal static byte ReceiveMessageWaitTime
         {
             get { return _receiveMessageWaitTime; }
             set { _receiveMessageWaitTime = value; }
@@ -85,25 +86,30 @@ namespace BookingEngine
             get { return _deQueueBatchCount; }
             set { _deQueueBatchCount = value; }
         }
-        public static byte MessageVisibilityTimeOut
+        internal static byte MessageVisibilityTimeOut
         {
             get { return _messageVisibilityTimeOut; }
             set { _messageVisibilityTimeOut = value; }
         }
-        public static byte BookingClientsCount
+        internal static byte BookingClientsCount
         {
             get { return _bookingClientsCount; }
             set { _bookingClientsCount = value; }
         }
-        public static byte SubscribersCount
+        internal static byte SubscribersCount
         {
             get { return _subscribersCount; }
             set { _subscribersCount = value; }
         }
-        public static byte BookingClientSleepTimeInSeconds
+        internal static byte BookingClientSleepTimeInSeconds
         {
             get { return _bookingClientSleepTimeInSeconds; }
             set { _bookingClientSleepTimeInSeconds = value; }
+        }
+        internal static string DefaultBOBookingUserName
+        {
+            get { return _defaultBOBookingUserName; }
+            set { _defaultBOBookingUserName = value; }
         }
         #endregion
     }
