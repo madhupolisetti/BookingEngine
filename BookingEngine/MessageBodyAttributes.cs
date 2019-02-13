@@ -23,6 +23,6 @@ namespace BookingEngine
         internal const string PUBLISH_TIME_STAMP = "PublishTimeStamp";
         internal const string COMBO_ID = "combo_id";
         internal const string COMBO_COUNT = "combo_count";
-        internal const string BOX_OFFICE_BOOKING_USER_NAME = "BOBookingUserName";
+        //internal const string BOX_OFFICE_BOOKING_USER_NAME = "BOBookingUserName";
     }
 }

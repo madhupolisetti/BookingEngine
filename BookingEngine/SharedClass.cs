@@ -25,7 +25,7 @@ namespace BookingEngine
         private static byte _messageVisibilityTimeOut = 120;
         private static byte _extendMessageVisibilityBy = 60;
         private static byte _bookingClientSleepTimeInSeconds = 2;
-        private static string _defaultBOBookingUserName = "ONLINE";
+        //private static string _defaultBOBookingUserName = "ONLINE";
         #endregion
         #region METHODS
         internal static void InitializeLogger()
@@ -106,11 +106,11 @@ namespace BookingEngine
             get { return _bookingClientSleepTimeInSeconds; }
             set { _bookingClientSleepTimeInSeconds = value; }
         }
-        internal static string DefaultBOBookingUserName
-        {
-            get { return _defaultBOBookingUserName; }
-            set { _defaultBOBookingUserName = value; }
-        }
+        //internal static string DefaultBOBookingUserName
+        //{
+        //    get { return _defaultBOBookingUserName; }
+        //    set { _defaultBOBookingUserName = value; }
+        //}
         #endregion
     }
 }

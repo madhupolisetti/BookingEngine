@@ -12,7 +12,7 @@ namespace BookingEngine
         public const string BOX_OFFICE_MOVIE_ID_FROM_WEB = "@BoxOfficeMovieIdFromWeb";
         public const string BOX_OFFICE_SCREEN_ID_FROM_WEB = "@BoxOfficeScreenIdFromWeb";
         public const string BOX_OFFICE_SHOW_TIME_FROM_WEB = "@BoxOfficeShowTimeFromWeb";
-        public const string BOX_OFFICE_BOOKING_USER_NAME = "@BOBookingUserName";
+        //public const string BOX_OFFICE_BOOKING_USER_NAME = "@BOBookingUserName";
         public const string SEAT_NUMBERS = "@SeatNumbers";
         public const string UNIQUE_KEY = "@UniqueKey";
         public const string LOCK_KEY = "@LockKey";
